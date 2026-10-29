@@ -1,1 +1,5 @@
-
+<resources>
+    <string name="app_name">Glass Статистика</string>
+    <string name="widget_name">Статистика</string>
+    <string name="widget_desc">Шаги, калории и время активности</string>
+</resources>
