@@ -13,6 +13,10 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Path
+import android.graphics.Shader
+import android.graphics.Typeface
 import android.graphics.Paint
 import android.graphics.RectF
 import android.hardware.Sensor
@@ -133,10 +137,7 @@ class StatsWidget : AppWidgetProvider() {
             val rv = RemoteViews(ctx.packageName, R.layout.widget_stats)
             val kcal = (steps * 0.06).roundToInt()
             val minutes = if (steps > 0) ceil(steps / 110.0).toInt() else 0
-            rv.setTextViewText(R.id.steps, steps.toString())
-            rv.setTextViewText(R.id.kcal, kcal.toString())
-            rv.setTextViewText(R.id.minutes, minutes.toString())
-            rv.setImageViewBitmap(R.id.ring, ring(steps.toFloat() / GOAL))
+            rv.setImageViewBitmap(R.id.card, card(steps, kcal, minutes))
             rv.setOnClickPendingIntent(R.id.root, openHealth(ctx))
             return rv
         }
@@ -153,29 +154,88 @@ class StatsWidget : AppWidgetProvider() {
             )
         }
 
-        private fun ring(frac: Float): Bitmap {
-            val s = 400
-            val bmp = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
+        // Весь виджет — одна квадратная картинка: всегда квадрат, как у Xiaomi.
+        private fun card(steps: Int, kcal: Int, minutes: Int): Bitmap {
+            val px = 600
+            val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
             val c = Canvas(bmp)
-            val stroke = 34f
+            c.scale(px / 480f, px / 480f)
+            val s = 480f
             val cx = s / 2f
-            val r = cx - stroke / 2 - 22f
-            val oval = RectF(cx - r, cx - r, cx + r, cx + r)
+            val p = Paint(Paint.ANTI_ALIAS_FLAG)
+
+            // стекло
+            val rect = RectF(2f, 2f, s - 2f, s - 2f)
+            p.shader = LinearGradient(0f, 0f, s, s, Color.parseColor("#B0606068"),
+                Color.parseColor("#B0232328"), Shader.TileMode.CLAMP)
+            c.drawRoundRect(rect, 72f, 72f, p)
+            p.shader = null
+            p.style = Paint.Style.STROKE; p.strokeWidth = 3f; p.color = Color.parseColor("#66FFFFFF")
+            c.drawRoundRect(rect, 72f, 72f, p)
+
+            // кольцо
             val accent = Color.parseColor("#FF6A3D")
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE; strokeWidth = stroke; strokeCap = Paint.Cap.ROUND
+            val stroke = 32f
+            val r = 190f
+            val oval = RectF(cx - r, cx - r, cx + r, cx + r)
+            p.strokeWidth = stroke; p.strokeCap = Paint.Cap.ROUND
+            p.color = Color.parseColor("#40FF6A3D")
+            c.drawOval(oval, p)
+            val f = (steps.toFloat() / GOAL).coerceIn(0f, 1f)
+            if (f > 0.005f) { p.color = accent; c.drawArc(oval, -90f, 360f * f, false, p) }
+            val ang = Math.toRadians(-90.0 + 360.0 * f)
+            p.style = Paint.Style.FILL; p.color = accent
+            c.drawCircle(cx + r * cos(ang).toFloat(), cx + r * sin(ang).toFloat(), 19f, p)
+
+            // строки: значок + число
+            val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE; textSize = 56f; typeface = Typeface.create("sans-serif", Typeface.NORMAL)
             }
-            paint.color = Color.parseColor("#40FF6A3D")
-            c.drawOval(oval, paint)
-            val f = frac.coerceIn(0f, 1f)
-            if (f > 0.005f) {
-                paint.color = accent
-                c.drawArc(oval, -90f, 360f * f, false, paint)
+            val values = listOf(steps.toString(), kcal.toString(), minutes.toString())
+            val iconW = 46f; val gap = 14f; val step = 82f
+            val block = iconW + gap + values.maxOf { tp.measureText(it) }
+            val left = cx - block / 2f
+            for (i in 0..2) {
+                val cy = cx + (i - 1) * step
+                c.save(); c.translate(left + iconW / 2f, cy)
+                when (i) { 0 -> feet(c); 1 -> flame(c); else -> clock(c) }
+                c.restore()
+                c.drawText(values[i], left + iconW + gap, cy + 20f, tp)
             }
-            val a = Math.toRadians(-90.0 + 360.0 * f)
-            val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent }
-            c.drawCircle(cx + r * cos(a).toFloat(), cx + r * sin(a).toFloat(), 22f, dot)
             return bmp
+        }
+
+        private fun feet(c: Canvas) {
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF8A3D") }
+            for ((dx, dy, rot) in listOf(Triple(-10f, 5f, -12f), Triple(10f, -5f, 12f))) {
+                c.save(); c.translate(dx, dy); c.rotate(rot)
+                c.drawOval(RectF(-7f, -2f, 7f, 18f), p)
+                c.drawOval(RectF(-6f, -14f, 6f, -4f), p)
+                c.restore()
+            }
+        }
+
+        private fun flame(c: Canvas) {
+            val path = Path().apply {
+                moveTo(0f, -21f)
+                cubicTo(5f, -11f, 17f, -4f, 16f, 8f)
+                cubicTo(15f, 17f, 8f, 22f, 0f, 22f)
+                cubicTo(-8f, 22f, -16f, 16f, -16f, 7f)
+                cubicTo(-16f, -2f, -9f, -7f, -7f, -15f)
+                cubicTo(-3f, -11f, -1f, -10f, 0f, -21f)
+                close()
+            }
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FFC21A") }
+            c.drawPath(path, p)
+        }
+
+        private fun clock(c: Canvas) {
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#34C759") }
+            c.drawCircle(0f, 0f, 21f, p)
+            p.color = Color.WHITE; p.style = Paint.Style.STROKE; p.strokeWidth = 3.6f
+            p.strokeCap = Paint.Cap.ROUND
+            c.drawLine(0f, 0f, 0f, -11f, p)
+            c.drawLine(0f, 0f, 8f, 5f, p)
         }
     }
 }
