@@ -166,11 +166,11 @@ class StatsWidget : AppWidgetProvider() {
 
             // стекло
             val rect = RectF(2f, 2f, s - 2f, s - 2f)
-            p.shader = LinearGradient(0f, 0f, s, s, Color.parseColor("#B0606068"),
-                Color.parseColor("#B0232328"), Shader.TileMode.CLAMP)
+            p.shader = LinearGradient(0f, 0f, s, s, Color.parseColor("#5CFFFFFF"),
+                Color.parseColor("#2EFFFFFF"), Shader.TileMode.CLAMP)
             c.drawRoundRect(rect, 72f, 72f, p)
             p.shader = null
-            p.style = Paint.Style.STROKE; p.strokeWidth = 3f; p.color = Color.parseColor("#66FFFFFF")
+            p.style = Paint.Style.STROKE; p.strokeWidth = 3f; p.color = Color.parseColor("#99FFFFFF")
             c.drawRoundRect(rect, 72f, 72f, p)
 
             // кольцо
@@ -179,7 +179,7 @@ class StatsWidget : AppWidgetProvider() {
             val r = 190f
             val oval = RectF(cx - r, cx - r, cx + r, cx + r)
             p.strokeWidth = stroke; p.strokeCap = Paint.Cap.ROUND
-            p.color = Color.parseColor("#40FF6A3D")
+            p.color = Color.parseColor("#55FF6A3D")
             c.drawOval(oval, p)
             val f = (steps.toFloat() / GOAL).coerceIn(0f, 1f)
             if (f > 0.005f) { p.color = accent; c.drawArc(oval, -90f, 360f * f, false, p) }
